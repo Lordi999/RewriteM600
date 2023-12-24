@@ -20,7 +20,7 @@ class Rewritem600Plugin(octoprint.plugin.AssetPlugin, octoprint.plugin.TemplateP
 		return cmd
 
 	def after_resume(self, comm_instance, phase, cmd, parameters, tags=None, *args, **kwargs):
-		if cmd and cmd == "resume":
+		if cmd and cmd == "beforePrintResumed":
 			if(comm_instance.pause_position.x):
 				cmd = []
 				cmd =["M83","G1 E-0.8 F4500", "G1 E0.8 F4500", "G1 E0.8 F4500", "M82", "G90", "G92 E"+str(comm_instance.pause_position.e), "M83", "G1 X"+str(comm_instance.pause_position.x)+" Y"+str(comm_instance.pause_position.y)+" Z"+str(comm_instance.pause_position.z)+" F4500"]
