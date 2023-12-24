@@ -35,8 +35,8 @@ class Rewritem600Plugin(octoprint.plugin.AssetPlugin, octoprint.plugin.TemplateP
 			self._logger.info("Resuming from Filament Change")
 			self.waiting = False
 			self._plugin_manager.send_plugin_message(self._identifier, dict(type = "popup", msg = "Resuming to location at X:" +
-								comm_instance.pause_position.x + " Y:" + comm_instance.pause_position.y +
-								" Z:" + comm_instance.pause_position.z))
+								str(comm_instance.pause_position.x) + " Y:" + str(comm_instance.pause_position.y) +
+								" Z:" + str(comm_instance.pause_position.z)))
 			if(comm_instance.pause_position.x):
 				cmd = [
 					# We'll assume that the user manually inserted and purged the new filament, so no new extrusion
