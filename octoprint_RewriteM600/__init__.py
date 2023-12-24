@@ -14,7 +14,6 @@ import octoprint.plugin
 
 
 class Rewritem600Plugin(octoprint.plugin.AssetPlugin, octoprint.plugin.TemplatePlugin, octoprint.plugin.SettingsPlugin):
-	cached_position = {"x": "NOT SET", "y": "NOT SET", "z": "NOT SET", "e": "NOT SET"}
 	listening = False
 	waiting = False
 
@@ -26,52 +25,32 @@ class Rewritem600Plugin(octoprint.plugin.AssetPlugin, octoprint.plugin.TemplateP
 			comm_instance.setPause(True)
 			self.listening = True  # We need to listen to the first result of M114, so we can cache position
 			cmd = ["M114", ("M117 Filament Change",), "G91", "M83", "G1 E-2 F2700", "G1 Z0.05", "G1 X5 Y5", "G1 Z+" + str(self._settings.get(["zDistance"])) + " F4500", "M82", "G90", "G1 X0 Y0 F4500"]
-			self._logger.info(self.cached_position)
 			self.waiting = True
 
 		return cmd
-
-	def detect_position(self, comm_instance, line, *args, **kwargs):
-		match = re.match("X:([0-9.]+) Y:([0-9.]+) Z:([0-9.]+) E:-?([0-9.]+) Count X:([0-9]+) Y:([0-9]+) Z:([0-9]+)", line)
-		if match is not None and self.listening:
-			self.cached_position["x"] = match.group(1)
-			self.cached_position["y"] = match.group(2)
-			self.cached_position["z"] = match.group(3)
-			self.cached_position["e"] = match.group(4)
-			self._plugin_manager.send_plugin_message(self._identifier, dict(type="popup", msg = "Saved location at X:" +
-								self.cached_position["x"] + " Y:" + self.cached_position["y"] +
-								" Z:" + self.cached_position["z"]))
-			self.listening = False  # Reset so we don't listen to the update called on print pause
-			self._logger.info(self.cached_position)
-		return line
 
 	def after_resume(self, comm_instance, script_type, script_name, *args, **kwargs):
 		self._logger.info("Received queued command: " + script_name)
 		if self.waiting and script_name == "beforePrintResumed":
 			self._logger.info("Resuming from Filament Change")
-			self._logger.info("Cached Positions:")
-			self._logger.info(self.cached_position)
-			self._logger.info("Paused Positions:")
-			self._logger.info(comm_instance.pause_position)
 			self.waiting = False
 			self._plugin_manager.send_plugin_message(self._identifier, dict(type = "popup", msg = "Resuming to location at X:" +
-								self.cached_position["x"] + " Y:" + self.cached_position["y"] +
-								" Z:" + self.cached_position["z"]))
-			if self.cached_position["x"] != "NOT SET":  # use our cached position
+								comm_instance.pause_position.x + " Y:" + comm_instance.pause_position.y +
+								" Z:" + comm_instance.pause_position.z))
+			if(comm_instance.pause_position.x):
 				cmd = [
 					# We'll assume that the user manually inserted and purged the new filament, so no new extrusion
 					# is required here
 					# "M83", "G1 E-0.8 F4500", "G1 E0.8 F4500", "G1 E0.8 F4500",
 					# "M83", "G1 Z-" + str(self._settings.get(["zDistance"])) + " F4500",
 					"M82", "G90",  # Reset to absolute positioning
-					"G92 E" + str(self.cached_position["e"]),
+					"G92 E" + str(comm_instance.pause_position.e),
 					# Reset our position to pre-M600 position
-					"G1 Z" + str(self.cached_position["z"]),
-					"G1 X" + str(self.cached_position["x"]) +
-					" Y" + str(self.cached_position["y"]) + " F4500"]
+					"G1 Z" + str(comm_instance.pause_position.z),
+					"G1 X" + str(comm_instance.pause_position.x) +
+					" Y" + str(comm_instance.pause_position.y) + " F4500"]
 				if comm_instance.pause_position.f:
 					cmd.append("G1 F" + str(comm_instance.pause_position.f))
-				self.cached_position = {"x": "NOT SET", "y": "NOT SET", "z": "NOT SET", "e": "NOT SET"}
 			return cmd, None
 
 	def get_settings_defaults(self):
@@ -139,5 +118,4 @@ def __plugin_load__():
 		"octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
 		"octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.rewrite_m600,
 		"octoprint.comm.protocol.scripts": __plugin_implementation__.after_resume,
-		"octoprint.comm.protocol.gcode.received": __plugin_implementation__.detect_position,
 	}
